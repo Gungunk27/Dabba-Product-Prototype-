@@ -1,0 +1,6 @@
+{
+  "name": "TiffinTrack",
+  "description": "Local marketplace for affordable everyday tiffin meals and daily dabba subscriptions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
