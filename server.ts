@@ -14,6 +14,10 @@ import {
   createMealServerSide,
   updateMealServerSide,
   toggleMealAvailabilityServerSide,
+  getCustomerOrdersServerSide,
+  getMealReviewsServerSide,
+  createMealReviewServerSide,
+  voteReviewHelpfulServerSide,
   isSupabaseConfigured,
   AuthenticationError,
   ForbiddenError,
@@ -184,6 +188,31 @@ app.get('/api/orders/:id', async (req: Request, res: Response) => {
     const errorMsg = err instanceof Error ? err.message : 'Failed to retrieve order';
     res.status(500).json({
       error: 'Order retrieval failed',
+      message: errorMsg,
+    });
+  }
+});
+
+// ==============================================================================
+// 5b. Customer Order History Endpoint
+// Returns past and active orders placed by the authenticated customer
+// ==============================================================================
+app.get('/api/customer/orders', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const result = await getCustomerOrdersServerSide(authHeader);
+    res.json(result);
+  } catch (err: unknown) {
+    if (err instanceof AuthenticationError) {
+      res.status(401).json({
+        error: 'Authentication Required',
+        message: err.message,
+      });
+      return;
+    }
+    const errorMsg = err instanceof Error ? err.message : 'Failed to fetch customer orders';
+    res.status(500).json({
+      error: 'Customer order history failed',
       message: errorMsg,
     });
   }
@@ -373,6 +402,55 @@ app.patch('/api/provider/meals/:id/availability', async (req: Request, res: Resp
     }
     const errorMsg = err instanceof Error ? err.message : 'Failed to toggle meal availability';
     res.status(500).json({ error: 'Meal availability update failed', message: errorMsg });
+  }
+});
+
+// ==============================================================================
+// 9. Customer Feedback & Review Endpoints
+// ==============================================================================
+app.get('/api/meals/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const mealId = req.params.id;
+    const result = await getMealReviewsServerSide(mealId);
+    res.json(result);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to retrieve reviews';
+    res.status(500).json({ error: 'Reviews query failed', message: errorMsg });
+  }
+});
+
+app.post('/api/meals/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const mealId = req.params.id;
+    const authHeader = req.headers.authorization;
+    const result = await createMealReviewServerSide(mealId, req.body, authHeader);
+    res.status(201).json(result);
+  } catch (err: unknown) {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ error: 'Validation Failed', message: err.message });
+      return;
+    }
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: 'Not Found', message: err.message });
+      return;
+    }
+    const errorMsg = err instanceof Error ? err.message : 'Review submission failed';
+    res.status(500).json({ error: 'Review submission failed', message: errorMsg });
+  }
+});
+
+app.post('/api/reviews/:id/helpful', async (req: Request, res: Response) => {
+  try {
+    const reviewId = req.params.id;
+    const result = await voteReviewHelpfulServerSide(reviewId);
+    res.json(result);
+  } catch (err: unknown) {
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: 'Not Found', message: err.message });
+      return;
+    }
+    const errorMsg = err instanceof Error ? err.message : 'Failed to register helpful vote';
+    res.status(500).json({ error: 'Helpful vote failed', message: errorMsg });
   }
 });
 

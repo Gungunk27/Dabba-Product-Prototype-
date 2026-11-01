@@ -13,6 +13,8 @@ import { ProviderDetailsView } from './views/ProviderDetailsView';
 import { CheckoutView } from './views/CheckoutView';
 import { OrderConfirmationView } from './views/OrderConfirmationView';
 import { ProviderDashboardView } from './views/ProviderDashboardView';
+import { FavoritesView } from './views/FavoritesView';
+import { OrderHistoryView } from './views/OrderHistoryView';
 import { DatabaseStatusBanner } from './components/DatabaseStatusBanner';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -23,6 +25,10 @@ const AppContent: React.FC = () => {
     switch (currentRoute.name) {
       case 'home':
         return <HomeView />;
+      case 'favorites':
+        return <FavoritesView />;
+      case 'order-history':
+        return <OrderHistoryView />;
       case 'meal-details':
         return <MealDetailsView mealId={currentRoute.mealId} />;
       case 'provider-details':

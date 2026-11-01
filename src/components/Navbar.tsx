@@ -1,16 +1,18 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Bookmark, Package } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { currentRoute, navigate, totalCartCount } = useCart();
+  const { currentRoute, navigate, totalCartCount, totalFavoritesCount } = useCart();
 
-  const handleNavClick = (e: React.MouseEvent, routeName: 'home' | 'provider-dashboard') => {
+  const handleNavClick = (e: React.MouseEvent, routeName: 'home' | 'provider-dashboard' | 'order-history') => {
     e.preventDefault();
     if (routeName === 'home') {
       navigate({ name: 'home' });
     } else if (routeName === 'provider-dashboard') {
       navigate({ name: 'provider-dashboard' });
+    } else if (routeName === 'order-history') {
+      navigate({ name: 'order-history' });
     }
   };
 
@@ -61,6 +63,15 @@ export const Navbar: React.FC = () => {
               Home Kitchens
             </button>
             <button
+              onClick={e => handleNavClick(e, 'order-history')}
+              className={`hover:text-stone-900 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                currentRoute.name === 'order-history' ? 'text-amber-800 font-semibold' : ''
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>My Orders</span>
+            </button>
+            <button
               onClick={e => handleNavClick(e, 'provider-dashboard')}
               className={`hover:text-stone-900 transition-colors whitespace-nowrap shrink-0 ${
                 currentRoute.name === 'provider-dashboard' ? 'text-amber-800 font-semibold' : ''
@@ -68,13 +79,63 @@ export const Navbar: React.FC = () => {
             >
               Kitchen Portal
             </button>
+            <button
+              onClick={() => navigate({ name: 'favorites' })}
+              className={`hover:text-stone-900 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                currentRoute.name === 'favorites' ? 'text-amber-800 font-semibold' : ''
+              }`}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${totalFavoritesCount > 0 ? 'fill-amber-500 text-amber-600' : ''}`} />
+              <span>Favorites</span>
+              {totalFavoritesCount > 0 && (
+                <span className="text-[11px] font-bold text-stone-500 tabular-nums">
+                  ({totalFavoritesCount})
+                </span>
+              )}
+            </button>
           </nav>
 
-          {/* Zone 3: 1 primary action (Cart & Checkout) */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Zone 3: Actions (Orders, Favorites & Cart) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick My Orders Button */}
+            <button
+              onClick={() => navigate({ name: 'order-history' })}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                currentRoute.name === 'order-history'
+                  ? 'border-amber-400 bg-amber-50 text-amber-900'
+                  : 'border-stone-200 text-stone-700 bg-white hover:bg-stone-50'
+              }`}
+              aria-label="View Order History & Tracking"
+              title="My Orders & Dabba Tracking"
+            >
+              <Package className="w-3.5 h-3.5 text-stone-600" />
+              <span className="hidden sm:inline">Orders</span>
+            </button>
+
+            {/* Quick Favorites Button */}
+            <button
+              onClick={() => navigate({ name: 'favorites' })}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap shrink-0 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                currentRoute.name === 'favorites'
+                  ? 'border-amber-400 bg-amber-50 text-amber-900'
+                  : 'border-stone-200 text-stone-700 bg-white hover:bg-stone-50'
+              }`}
+              aria-label={`View ${totalFavoritesCount} bookmarked favorite meals`}
+              title="Saved Favorite Meals"
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${totalFavoritesCount > 0 ? 'fill-amber-500 text-amber-600' : 'text-stone-400'}`} />
+              <span className="hidden sm:inline">Favorites</span>
+              {totalFavoritesCount > 0 && (
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums">
+                  {totalFavoritesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dabba Cart Button */}
             <button
               onClick={() => navigate({ name: 'checkout' })}
-              className="relative inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors whitespace-nowrap shrink-0 shadow-xs"
+              className="relative inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-stone-900 rounded-lg hover:bg-stone-800 transition-colors whitespace-nowrap shrink-0 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               aria-label="View Dabba Cart"
             >
               <ShoppingBag className="w-4 h-4 text-amber-400" />

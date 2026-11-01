@@ -4,6 +4,8 @@ import { TiffinService } from '../services/tiffinService';
 
 export type AppRoute =
   | { name: 'home' }
+  | { name: 'favorites' }
+  | { name: 'order-history' }
   | { name: 'meal-details'; mealId: string }
   | { name: 'provider-details'; providerId: string }
   | { name: 'checkout' }
@@ -21,11 +23,17 @@ interface CartContextType {
   toastMessage: string | null;
   showToast: (msg: string) => void;
   totalCartCount: number;
+  favoriteMealIds: string[];
+  isFavorite: (mealId: string) => boolean;
+  toggleFavorite: (mealId: string, mealTitle?: string) => void;
+  removeFavorite: (mealId: string, mealTitle?: string) => void;
+  totalFavoritesCount: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'tiffintrack_user_cart_v1';
+const FAVORITES_STORAGE_KEY = 'tiffintrack_user_favorites_v1';
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -38,6 +46,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return [];
   });
 
+  const [favoriteMealIds, setFavoriteMealIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    // Seed flagship meal so user immediately explores favorites
+    return ['meal-north-deluxe'];
+  });
+
   const [currentRoute, setCurrentRoute] = useState<AppRoute>({ name: 'home' });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -48,6 +67,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
   }, [cart]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteMealIds));
+    } catch {
+      // ignore
+    }
+  }, [favoriteMealIds]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -121,12 +148,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCart([]);
   };
 
+  const isFavorite = (mealId: string) => favoriteMealIds.includes(mealId);
+
+  const toggleFavorite = (mealId: string, mealTitle?: string) => {
+    setFavoriteMealIds(prev => {
+      const exists = prev.includes(mealId);
+      if (exists) {
+        showToast(mealTitle ? `Removed "${mealTitle}" from favorites` : 'Removed meal from favorites');
+        return prev.filter(id => id !== mealId);
+      } else {
+        showToast(mealTitle ? `Bookmarked "${mealTitle}" in your favorites` : 'Bookmarked meal in your favorites');
+        return [...prev, mealId];
+      }
+    });
+  };
+
+  const removeFavorite = (mealId: string, mealTitle?: string) => {
+    setFavoriteMealIds(prev => prev.filter(id => id !== mealId));
+    showToast(mealTitle ? `Removed "${mealTitle}" from favorites` : 'Removed meal from favorites');
+  };
+
   const navigate = (route: AppRoute) => {
     setCurrentRoute(route);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const totalCartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const totalFavoritesCount = favoriteMealIds.length;
 
   return (
     <CartContext.Provider
@@ -141,6 +189,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toastMessage,
         showToast,
         totalCartCount,
+        favoriteMealIds,
+        isFavorite,
+        toggleFavorite,
+        removeFavorite,
+        totalFavoritesCount,
       }}
     >
       {children}

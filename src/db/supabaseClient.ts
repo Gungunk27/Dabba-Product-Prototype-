@@ -121,6 +121,42 @@ class LocalDatabaseStore {
     return this.reviews.filter(r => r.providerId === providerId);
   }
 
+  public getReviewsByMeal(mealId: string): DemoCustomerReview[] {
+    return this.reviews.filter(r => r.mealId === mealId);
+  }
+
+  public getAllReviews(): DemoCustomerReview[] {
+    return [...this.reviews];
+  }
+
+  public addReview(review: DemoCustomerReview): DemoCustomerReview {
+    this.reviews.unshift(review);
+    this.saveToStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+    return review;
+  }
+
+  public voteReviewHelpful(reviewId: string): { helpfulCount: number; hasVoted: boolean } {
+    const review = this.reviews.find(r => r.id === reviewId);
+    if (!review) return { helpfulCount: 0, hasVoted: false };
+
+    const votedKey = `voted_helpful_${reviewId}`;
+    const alreadyVoted = localStorage.getItem(votedKey) === 'true';
+
+    if (alreadyVoted) {
+      // Toggle off
+      review.helpfulCount = Math.max(0, (review.helpfulCount || 1) - 1);
+      try { localStorage.removeItem(votedKey); } catch {}
+      this.saveToStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+      return { helpfulCount: review.helpfulCount, hasVoted: false };
+    } else {
+      // Upvote
+      review.helpfulCount = (review.helpfulCount || 0) + 1;
+      try { localStorage.setItem(votedKey, 'true'); } catch {}
+      this.saveToStorage(STORAGE_KEYS.REVIEWS, this.reviews);
+      return { helpfulCount: review.helpfulCount, hasVoted: true };
+    }
+  }
+
   public createOrder(order: Order): Order {
     this.orders.unshift(order);
     this.saveToStorage(STORAGE_KEYS.ORDERS, this.orders);

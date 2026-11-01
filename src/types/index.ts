@@ -177,16 +177,41 @@ export interface Order {
   idempotencyKey?: string;
 }
 
-export interface DemoCustomerReview {
+export interface CustomerReview {
   id: string;
   providerId: string;
   mealId?: string;
   authorName: string;
-  rating?: number;
+  rating: number; // 1 to 5 stars
   date: string;
+  createdAt?: string;
   reviewText: string;
-  dietTag: string;
+  dietTag?: string;
+  aspects?: string[]; // e.g. ['Piping Hot Phulkas', 'Homestyle Taste', 'Generous Portion', 'Zero Excess Oil']
+  planType?: 'single_trial' | 'weekly_6days' | 'monthly_24days' | string;
   isDemoFeedback: boolean;
+  helpfulCount?: number;
+  recommended?: boolean;
+  verifiedSubscriber?: boolean;
+  kitchenReply?: {
+    chefName: string;
+    replyText: string;
+    repliedAt: string;
+  };
+}
+
+export type DemoCustomerReview = CustomerReview;
+
+export interface CreateReviewInput {
+  mealId: string;
+  providerId: string;
+  authorName: string;
+  rating: number;
+  reviewText: string;
+  dietTag?: string;
+  aspects?: string[];
+  planType?: string;
+  recommended?: boolean;
 }
 
 export interface FilterState {
@@ -197,6 +222,7 @@ export interface FilterState {
   locality: 'all' | string;
   maxPrice: number;
   sortBy: 'featured' | 'price_asc' | 'price_desc';
+  favoritesOnly?: boolean;
 }
 
 export interface DatabaseConnectionStatus {

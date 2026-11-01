@@ -1,6 +1,7 @@
 import React from 'react';
 import { FilterState, MealDietType } from '../types';
-import { Search, RotateCcw, MapPin, IndianRupee } from 'lucide-react';
+import { Search, RotateCcw, MapPin, IndianRupee, Bookmark } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 interface FilterBarProps {
   filters: FilterState;
@@ -9,6 +10,7 @@ interface FilterBarProps {
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, totalResults }) => {
+  const { totalFavoritesCount } = useCart();
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ ...filters, searchQuery: e.target.value });
   };
@@ -42,6 +44,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, totalRe
       locality: 'all',
       maxPrice: 200,
       sortBy: 'featured',
+      favoritesOnly: false,
     });
   };
 
@@ -51,7 +54,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, totalRe
     filters.slot !== 'all' ||
     filters.locality !== 'all' ||
     filters.maxPrice < 200 ||
-    filters.sortBy !== 'featured';
+    filters.sortBy !== 'featured' ||
+    Boolean(filters.favoritesOnly);
 
   const dietOptions: { id: 'all' | MealDietType; label: string }[] = [
     { id: 'all', label: 'All Diets' },
@@ -206,6 +210,32 @@ export const FilterBar: React.FC<FilterBarProps> = ({ filters, onChange, totalRe
               {opt.label}
             </button>
           ))}
+        </div>
+
+        {/* Bookmarked / Favorites Quick Filter Toggle */}
+        <div className="ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => onChange({ ...filters, favoritesOnly: !filters.favoritesOnly })}
+            aria-pressed={Boolean(filters.favoritesOnly)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+              filters.favoritesOnly
+                ? 'bg-amber-600 text-white border-amber-600 shadow-xs font-semibold'
+                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+            }`}
+          >
+            <Bookmark className={`w-3.5 h-3.5 ${filters.favoritesOnly ? 'fill-white text-white' : 'text-amber-600'}`} />
+            <span>Saved Favorites</span>
+            {totalFavoritesCount > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full tabular-nums font-bold ${
+                  filters.favoritesOnly ? 'bg-amber-700 text-white' : 'bg-stone-100 text-stone-700'
+                }`}
+              >
+                {totalFavoritesCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 

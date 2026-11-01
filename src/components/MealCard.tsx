@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MealItem } from '../types';
 import { PriceDisplay } from './PriceDisplay';
 import { useCart } from '../context/CartContext';
-import { Utensils, Check, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { Utensils, Check, MapPin, Clock, ArrowRight, Bookmark } from 'lucide-react';
 
 interface MealCardProps {
   meal: MealItem;
@@ -10,8 +10,15 @@ interface MealCardProps {
 }
 
 export const MealCard: React.FC<MealCardProps> = ({ meal, onSelect }) => {
-  const { addToCart, navigate } = useCart();
+  const { addToCart, navigate, isFavorite, toggleFavorite } = useCart();
   const [justAdded, setJustAdded] = useState(false);
+
+  const isFav = isFavorite(meal.id);
+
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavorite(meal.id, meal.title);
+  };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,7 +66,7 @@ export const MealCard: React.FC<MealCardProps> = ({ meal, onSelect }) => {
         {/* Quiet unboxed gradient scrim for text contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 
-        {/* Top Badges */}
+        {/* Top Badges & Actions */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
           {/* Availability Status */}
           <span
@@ -72,10 +79,28 @@ export const MealCard: React.FC<MealCardProps> = ({ meal, onSelect }) => {
             {meal.isAvailable ? 'Available Today' : 'Sold Out Today'}
           </span>
 
-          {/* Explicit Demo Label */}
-          <span className="text-[10px] font-semibold bg-stone-900/80 text-amber-200 px-1.5 py-0.5 rounded backdrop-blur-xs">
-            Demo Listing
-          </span>
+          <div className="flex items-center gap-1.5">
+            {/* Bookmark Favorite Button */}
+            <button
+              type="button"
+              onClick={handleBookmarkClick}
+              aria-label={isFav ? `Remove ${meal.title} from favorites` : `Bookmark ${meal.title} as favorite`}
+              aria-pressed={isFav}
+              title={isFav ? 'Bookmarked in Favorites' : 'Bookmark as Favorite'}
+              className={`p-1.5 rounded-lg backdrop-blur-md transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                isFav
+                  ? 'bg-amber-500 text-stone-950 hover:bg-amber-400 ring-1 ring-amber-400'
+                  : 'bg-stone-950/75 text-white/90 hover:bg-stone-950 hover:text-white'
+              }`}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isFav ? 'fill-stone-950 text-stone-950' : 'text-stone-200'}`} />
+            </button>
+
+            {/* Explicit Demo Label */}
+            <span className="text-[10px] font-semibold bg-stone-900/80 text-amber-200 px-1.5 py-0.5 rounded backdrop-blur-xs">
+              Demo
+            </span>
+          </div>
         </div>
 
         {/* Bottom image overlay details */}

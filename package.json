@@ -9,9 +9,12 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx tests/test-order-workflow.ts && tsx tests/provider-dashboard.ts",
+    "test": "tsx tests/test-order-workflow.ts && tsx tests/provider-dashboard.ts && tsx tests/meal-reviews.ts && tsx tests/favorite-meals.ts && tsx tests/order-history.ts",
     "test:orders": "tsx tests/test-order-workflow.ts",
-    "test:provider": "tsx tests/provider-dashboard.ts"
+    "test:provider": "tsx tests/provider-dashboard.ts",
+    "test:reviews": "tsx tests/meal-reviews.ts",
+    "test:favorites": "tsx tests/favorite-meals.ts",
+    "test:history": "tsx tests/order-history.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

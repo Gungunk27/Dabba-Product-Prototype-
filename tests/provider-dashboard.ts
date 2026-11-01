@@ -77,6 +77,54 @@ export async function runProviderDashboardTests() {
 
   demoStoreHelpers.resetDemoOrders();
 
+  const store = demoStoreHelpers.getDemoStore();
+  if (!store.providers.some(p => p.id === 'prov-shree-krishna')) {
+    store.providers.push({
+      id: 'prov-shree-krishna',
+      name: 'Shree Krishna Kitchen (Demo)',
+      leadChef: 'Gopal Krishna',
+      avatarUrl: '/src/assets/images/meal_jain_sattvic_1791881641292.jpg',
+      bannerUrl: '/src/assets/images/meal_jain_sattvic_1791881641292.jpg',
+      bio: 'Pure homestyle Sattvic food in Malleshwaram.',
+      locality: 'Malleshwaram',
+      city: 'Bengaluru',
+      distanceKm: 2.8,
+      openSlots: ['lunch', 'dinner'],
+      demoLicenseNotice: 'Demo FSSAI #DEMO-KA-99221',
+      contactPhone: '+91 98452 20033 (Demo)',
+      hygieneStandards: ['100% Sattvic', 'Filtered water'],
+      deliveryWindows: { lunch: '12:00 PM – 1:00 PM', dinner: '7:30 PM – 8:30 PM' },
+      activeSubscribers: 40,
+      establishedYear: 2022,
+      isActive: true,
+    });
+  }
+  if (!store.meals.some(m => m.id === 'meal-jain-satvik')) {
+    store.meals.push({
+      id: 'meal-jain-satvik',
+      providerId: 'prov-shree-krishna',
+      providerName: 'Shree Krishna Kitchen',
+      locality: 'Malleshwaram',
+      title: 'Shree Krishna Satvik Dinner Dabba',
+      tagline: 'Fresh satvik meal with rotis and dal',
+      description: 'Prepared without onions and garlic with fresh seasonal vegetables.',
+      pricePerMeal: 110,
+      weeklyPricePerMeal: 95,
+      monthlyPricePerMeal: 85,
+      dietType: 'jain',
+      cuisine: 'gujarati',
+      slot: 'dinner',
+      spiceLevel: 'Mild',
+      packaging: 'Food-Grade Sealed Tray',
+      imageUrl: '/src/assets/images/meal_jain_sattvic_1791881641292.jpg',
+      contents: ['3 Rotis', 'Moong Dal', 'Aloo Gobi', 'Rice'],
+      schedule: [],
+      isAvailable: true,
+      preparationLeadTime: '1 hr',
+      caloriesEstimate: '500 kcal',
+    });
+  }
+
   const ANNAPURNA_TOKEN = 'Bearer demo-provider-annapurna-token';
   const KRISHNA_TOKEN = 'Bearer demo-provider-krishna-token';
   const CUSTOMER_TOKEN = 'Bearer demo-customer-token';
@@ -233,7 +281,7 @@ export async function runProviderDashboardTests() {
   // --------------------------------------------------------------------------
 
   await runTest('3.1 Rejects jumping from requested directly to ready or completed', async () => {
-    // Create fresh order
+    // Create fresh order with unique quantity to bypass rapid duplicate cache
     const freshOrder = await createOrderServerSide(
       {
         customerName: 'Test Order Jump',
@@ -242,7 +290,8 @@ export async function runProviderDashboardTests() {
         locality: 'Koramangala',
         deliverySlot: 'lunch',
         paymentMethod: 'upi_on_delivery',
-        items: [{ mealId: 'meal-north-deluxe', frequency: 'single_trial', quantity: 1, selectedSlot: 'lunch' }],
+        idempotencyKey: `order-jump-test-${Date.now()}`,
+        items: [{ mealId: 'meal-north-deluxe', frequency: 'single_trial', quantity: 4, selectedSlot: 'lunch' }],
       },
       CUSTOMER_TOKEN
     );
@@ -289,7 +338,8 @@ export async function runProviderDashboardTests() {
         locality: 'Indiranagar',
         deliverySlot: 'lunch',
         paymentMethod: 'upi_on_delivery',
-        items: [{ mealId: 'meal-north-deluxe', frequency: 'single_trial', quantity: 1, selectedSlot: 'lunch' }],
+        idempotencyKey: `order-ready-cancel-${Date.now()}`,
+        items: [{ mealId: 'meal-north-deluxe', frequency: 'single_trial', quantity: 6, selectedSlot: 'lunch' }],
       },
       CUSTOMER_TOKEN
     );
@@ -301,7 +351,7 @@ export async function runProviderDashboardTests() {
     try {
       await updateOrderStatusServerSide(readyOrderRes.order.id, 'cancelled', ANNAPURNA_TOKEN);
     } catch (err: unknown) {
-      if (err instanceof ValidationError && err.message.includes('cannot be cancelled')) {
+      if (err instanceof ValidationError && err.message.toLowerCase().includes('cannot be cancelled')) {
         cancelReadyFailed = true;
       }
     }

@@ -4,14 +4,15 @@ import { TiffinService } from '../services/tiffinService';
 import { useCart } from '../context/CartContext';
 import { PriceDisplay } from '../components/PriceDisplay';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { ArrowLeft, Check, Clock, Calendar, MapPin, Info, ShieldCheck } from 'lucide-react';
+import { MealReviewsSection } from '../components/MealReviewsSection';
+import { ArrowLeft, Check, Clock, Calendar, MapPin, Info, ShieldCheck, Star, Bookmark } from 'lucide-react';
 
 interface MealDetailsViewProps {
   mealId: string;
 }
 
 export const MealDetailsView: React.FC<MealDetailsViewProps> = ({ mealId }) => {
-  const { addToCart, navigate } = useCart();
+  const { addToCart, navigate, isFavorite, toggleFavorite } = useCart();
   const [meal, setMeal] = useState<MealItem | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,6 +135,23 @@ export const MealDetailsView: React.FC<MealDetailsViewProps> = ({ mealId }) => {
                 Demo Listing
               </span>
             </div>
+
+            {/* Favorite Bookmark Button */}
+            <button
+              type="button"
+              onClick={() => toggleFavorite(meal.id, meal.title)}
+              aria-label={isFavorite(meal.id) ? `Remove ${meal.title} from favorites` : `Bookmark ${meal.title} as favorite`}
+              aria-pressed={isFavorite(meal.id)}
+              className={`absolute top-3 right-3 px-3 py-1.5 rounded-lg backdrop-blur-md transition-all shadow-xs flex items-center gap-1.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                isFavorite(meal.id)
+                  ? 'bg-amber-500 text-stone-950 hover:bg-amber-400 ring-1 ring-amber-400'
+                  : 'bg-stone-950/80 text-white/90 hover:bg-stone-950 hover:text-white'
+              }`}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isFavorite(meal.id) ? 'fill-stone-950 text-stone-950' : 'text-stone-200'}`} />
+              <span>{isFavorite(meal.id) ? 'Bookmarked' : 'Bookmark Meal'}</span>
+            </button>
+
             <div className="absolute bottom-3 left-3 bg-stone-950/80 backdrop-blur-xs text-white text-xs px-3 py-1.5 rounded-lg">
               {meal.packaging}
             </div>
@@ -247,6 +265,9 @@ export const MealDetailsView: React.FC<MealDetailsViewProps> = ({ mealId }) => {
               </p>
             </div>
           )}
+
+          {/* Customer Reviews & Feedback Component */}
+          <MealReviewsSection meal={meal} />
         </div>
 
         {/* Right Column: Contiguous Purchase Module (PDP) */}
@@ -271,15 +292,29 @@ export const MealDetailsView: React.FC<MealDetailsViewProps> = ({ mealId }) => {
                 {meal.title}
               </h1>
 
-              <p className="text-xs text-stone-500 mt-1">
-                Prepared by{' '}
+              <div className="flex items-center justify-between gap-2 mt-1 flex-wrap">
+                <p className="text-xs text-stone-500">
+                  Prepared by{' '}
+                  <button
+                    onClick={() => provider && navigate({ name: 'provider-details', providerId: provider.id })}
+                    className="text-stone-900 font-semibold underline underline-offset-2 hover:text-amber-800"
+                  >
+                    {meal.providerName}
+                  </button>
+                </p>
+
                 <button
-                  onClick={() => provider && navigate({ name: 'provider-details', providerId: provider.id })}
-                  className="text-stone-900 font-semibold underline underline-offset-2 hover:text-amber-800"
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('reviews-section');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="text-xs text-amber-800 hover:text-amber-900 font-semibold flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
                 >
-                  {meal.providerName}
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>Verified Reviews</span>
                 </button>
-              </p>
+              </div>
             </div>
 
             {/* Base Price Display */}

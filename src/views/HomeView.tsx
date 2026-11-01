@@ -10,7 +10,7 @@ import { useCart } from '../context/CartContext';
 import { ArrowRight, Clock, ShieldCheck, Sparkles, ChefHat, MapPin } from 'lucide-react';
 
 export const HomeView: React.FC = () => {
-  const { navigate } = useCart();
+  const { navigate, favoriteMealIds } = useCart();
   const [meals, setMeals] = useState<MealItem[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,6 +24,7 @@ export const HomeView: React.FC = () => {
     locality: 'all',
     maxPrice: 200,
     sortBy: 'featured',
+    favoritesOnly: false,
   });
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
@@ -142,45 +143,65 @@ export const HomeView: React.FC = () => {
         </div>
 
         {/* Filter Bar */}
-        <FilterBar
-          filters={filters}
-          onChange={setFilters}
-          totalResults={meals.length}
-        />
+        {(() => {
+          const displayedMeals = filters.favoritesOnly
+            ? meals.filter(m => favoriteMealIds.includes(m.id))
+            : meals;
 
-        {/* Catalog Grid or States */}
-        {isLoading ? (
-          <GridLoadingSkeleton count={4} />
-        ) : error ? (
-          <ErrorMessage message={error} onRetry={loadData} />
-        ) : meals.length === 0 ? (
-          <EmptyState
-            title="No meals match your current selection"
-            description="No meals found matching your search or filters. Try selecting 'All Localities', increasing the maximum price, or switching between lunch and dinner slots."
-            actionText="Clear All Filters"
-            onAction={() =>
-              setFilters({
-                searchQuery: '',
-                dietType: 'all',
-                cuisine: 'all',
-                slot: 'all',
-                locality: 'all',
-                maxPrice: 200,
-                sortBy: 'featured',
-              })
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {meals.map(meal => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                onSelect={mealId => navigate({ name: 'meal-details', mealId })}
+          return (
+            <>
+              <FilterBar
+                filters={filters}
+                onChange={setFilters}
+                totalResults={displayedMeals.length}
               />
-            ))}
-          </div>
-        )}
+
+              {/* Catalog Grid or States */}
+              {isLoading ? (
+                <GridLoadingSkeleton count={4} />
+              ) : error ? (
+                <ErrorMessage message={error} onRetry={loadData} />
+              ) : displayedMeals.length === 0 ? (
+                filters.favoritesOnly ? (
+                  <EmptyState
+                    title="No bookmarked favorite meals found"
+                    description="You haven't bookmarked any meals matching this search or locality yet. Click the bookmark icon on any meal card to add it to your favorites."
+                    actionText="Show All Tiffins"
+                    onAction={() => setFilters(prev => ({ ...prev, favoritesOnly: false }))}
+                  />
+                ) : (
+                  <EmptyState
+                    title="No meals match your current selection"
+                    description="No meals found matching your search or filters. Try selecting 'All Localities', increasing the maximum price, or switching between lunch and dinner slots."
+                    actionText="Clear All Filters"
+                    onAction={() =>
+                      setFilters({
+                        searchQuery: '',
+                        dietType: 'all',
+                        cuisine: 'all',
+                        slot: 'all',
+                        locality: 'all',
+                        maxPrice: 200,
+                        sortBy: 'featured',
+                        favoritesOnly: false,
+                      })
+                    }
+                  />
+                )
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {displayedMeals.map(meal => (
+                    <MealCard
+                      key={meal.id}
+                      meal={meal}
+                      onSelect={mealId => navigate({ name: 'meal-details', mealId })}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </section>
 
       {/* 3. How TiffinTrack Works (Strict Claim-to-Proof & Content Ceiling) */}

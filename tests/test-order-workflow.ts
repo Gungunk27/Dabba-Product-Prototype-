@@ -455,7 +455,7 @@ export async function runAllTests() {
     try {
       await updateOrderStatusServerSide(orderId, 'confirmed', 'Bearer demo-provider-token');
     } catch (err: unknown) {
-      if (err instanceof ValidationError && err.message.includes('Terminal state')) {
+      if (err instanceof ValidationError && err.message.toLowerCase().includes('terminal state')) {
         terminalBlocked = true;
       }
     }

@@ -1,5 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { MealItem, Provider, Order, OrderStatus, VALID_STATUS_TRANSITIONS, CartItem, SubscriptionFrequency, CreateMealInput, UpdateMealInput } from '../types';
+import {
+  MealItem,
+  Provider,
+  Order,
+  OrderStatus,
+  VALID_STATUS_TRANSITIONS,
+  CartItem,
+  SubscriptionFrequency,
+  CreateMealInput,
+  UpdateMealInput,
+  CustomerReview,
+  CreateReviewInput,
+} from '../types';
 import { INITIAL_MEALS, INITIAL_PROVIDERS, INITIAL_REVIEWS } from '../db/mockSeedData';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -848,6 +860,88 @@ export async function getOrderByIdServerSide(
 }
 
 /**
+ * Server-Side Customer Order History Retrieval
+ * Returns orders placed by the authenticated customer.
+ * Enforces ownership boundary: customers can only view their own orders.
+ */
+export async function getCustomerOrdersServerSide(
+  authHeader?: string
+): Promise<{ orders: Order[]; isDemoMode: boolean }> {
+  const sessionUser = await resolveSessionUser(authHeader);
+  if (!sessionUser) {
+    throw new AuthenticationError('Authentication required to view order history.');
+  }
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    let query = supabaseAdmin
+      .from('orders')
+      .select(`
+        *,
+        order_items (
+          *,
+          meals (*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (sessionUser.role !== 'admin') {
+      query = query.eq('customer_id', sessionUser.id);
+    }
+
+    const { data: dbOrders, error } = await query;
+    if (error) {
+      throw new Error(`Failed to query customer orders: ${error.message}`);
+    }
+
+    const mapped: Order[] = (dbOrders || []).map((o: any) => ({
+      id: o.id,
+      createdAt: o.created_at,
+      customerId: o.customer_id,
+      customerName: o.customer_name,
+      customerPhone: o.customer_phone,
+      deliveryAddress: o.delivery_address,
+      locality: o.locality,
+      landmark: o.landmark,
+      items: (o.order_items || []).map((oi: any) => ({
+        cartItemId: oi.id,
+        meal: {
+          id: oi.meal_id,
+          providerId: oi.meals?.provider_id,
+          title: oi.meal_title,
+          pricePerMeal: Number(oi.unit_price),
+        } as any,
+        frequency: oi.frequency,
+        quantity: oi.quantity,
+        selectedSlot: oi.delivery_slot,
+        specialInstructions: oi.special_instructions,
+        totalPrice: Number(oi.total_price),
+      })),
+      subtotal: Number(o.subtotal),
+      deliveryFee: Number(o.delivery_fee),
+      packagingFee: Number(o.packaging_fee),
+      discount: Number(o.discount),
+      finalAmount: Number(o.final_amount),
+      paymentMethod: o.payment_method,
+      deliverySlot: o.delivery_slot,
+      orderNotes: o.order_notes,
+      status: o.status,
+      estimatedDeliveryTime: o.estimated_delivery_time,
+      isDemoOrder: false,
+    }));
+
+    return { orders: mapped, isDemoMode: false };
+  }
+
+  // Demo Store: Return orders for this customer (or all demo orders if admin/demo-customer)
+  const customerOrders = demoStore.orders.filter(order => {
+    if (sessionUser.role === 'admin') return true;
+    return !order.customerId || order.customerId === sessionUser.id;
+  });
+
+  return { orders: customerOrders, isDemoMode: true };
+}
+
+/**
  * Server-Side Provider Order Retrieval
  * Returns incoming orders containing meals for the authenticated provider's own kitchen only.
  * Enforces server-side authorization and ownership isolation.
@@ -1450,6 +1544,148 @@ export async function toggleMealAvailabilityServerSide(
   }
 
   return { mealId, isAvailable, isDemoMode: true };
+}
+
+/**
+ * Fetch reviews for a specific meal
+ */
+export async function getMealReviewsServerSide(
+  mealId: string
+): Promise<{ reviews: CustomerReview[]; isDemoMode: boolean }> {
+  if (isSupabaseConfigured && supabaseAdmin) {
+    const { data, error } = await supabaseAdmin
+      .from('customer_reviews')
+      .select('*')
+      .eq('meal_id', mealId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch reviews: ${error.message}`);
+    }
+
+    const mapped: CustomerReview[] = (data || []).map((row: any) => ({
+      id: row.id,
+      providerId: row.provider_id,
+      mealId: row.meal_id,
+      authorName: row.author_name,
+      rating: row.rating,
+      date: new Date(row.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
+      createdAt: row.created_at,
+      reviewText: row.review_text,
+      dietTag: row.diet_tag,
+      aspects: row.aspects || [],
+      planType: row.plan_type || 'single_trial',
+      isDemoFeedback: Boolean(row.is_demo_feedback),
+      helpfulCount: row.helpful_count || 0,
+      recommended: row.recommended !== false,
+      verifiedSubscriber: true,
+    }));
+
+    return { reviews: mapped, isDemoMode: false };
+  }
+
+  const reviews = demoStore.reviews.filter(r => r.mealId === mealId);
+  return { reviews, isDemoMode: true };
+}
+
+/**
+ * Create a new customer review with server-side validation
+ */
+export async function createMealReviewServerSide(
+  mealId: string,
+  payload: CreateReviewInput,
+  authHeader?: string
+): Promise<{ review: CustomerReview; isDemoMode: boolean }> {
+  // Validate meal exists
+  let targetMeal: MealItem | undefined;
+  if (isSupabaseConfigured && supabaseAdmin) {
+    const { data: dbMeal } = await supabaseAdmin
+      .from('meals')
+      .select('id, provider_id')
+      .eq('id', mealId)
+      .single();
+    if (!dbMeal) {
+      throw new NotFoundError(`Meal '${mealId}' not found.`);
+    }
+  } else {
+    targetMeal = demoStore.meals.find(m => m.id === mealId);
+    if (!targetMeal) {
+      throw new NotFoundError(`Meal '${mealId}' not found.`);
+    }
+  }
+
+  // Input Validation
+  if (!payload.rating || !Number.isInteger(payload.rating) || payload.rating < 1 || payload.rating > 5) {
+    throw new ValidationError('Rating must be an integer between 1 and 5 stars.');
+  }
+
+  const cleanName = (payload.authorName || '').trim();
+  if (cleanName.length < 2) {
+    throw new ValidationError('Customer name must be at least 2 characters.');
+  }
+
+  const cleanText = (payload.reviewText || '').trim();
+  if (cleanText.length < 10) {
+    throw new ValidationError('Review feedback must be at least 10 characters.');
+  }
+
+  const newReview: CustomerReview = {
+    id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    mealId,
+    providerId: payload.providerId || targetMeal?.providerId || 'prov-annapurna',
+    authorName: cleanName,
+    rating: payload.rating,
+    date: 'Just now',
+    createdAt: new Date().toISOString(),
+    reviewText: cleanText,
+    dietTag: payload.dietTag || targetMeal?.dietType || 'Homestyle',
+    aspects: Array.isArray(payload.aspects) ? payload.aspects.slice(0, 6) : [],
+    planType: payload.planType || 'single_trial',
+    isDemoFeedback: false,
+    helpfulCount: 0,
+    recommended: payload.recommended !== false,
+    verifiedSubscriber: true,
+  };
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    const { error: insertErr } = await supabaseAdmin
+      .from('customer_reviews')
+      .insert({
+        id: newReview.id,
+        provider_id: newReview.providerId,
+        meal_id: newReview.mealId,
+        author_name: newReview.authorName,
+        rating: newReview.rating,
+        review_text: newReview.reviewText,
+        diet_tag: newReview.dietTag,
+        is_demo_feedback: false,
+      });
+
+    if (insertErr) {
+      throw new Error(`Failed to save review in Supabase: ${insertErr.message}`);
+    }
+
+    return { review: newReview, isDemoMode: false };
+  }
+
+  // Prepend to demo store
+  demoStore.reviews.unshift(newReview);
+  return { review: newReview, isDemoMode: true };
+}
+
+/**
+ * Increment helpful votes on a review
+ */
+export async function voteReviewHelpfulServerSide(
+  reviewId: string
+): Promise<{ reviewId: string; helpfulCount: number; isDemoMode: boolean }> {
+  const found = demoStore.reviews.find(r => r.id === reviewId);
+  if (!found) {
+    throw new NotFoundError(`Review '${reviewId}' not found.`);
+  }
+
+  found.helpfulCount = (found.helpfulCount || 0) + 1;
+  return { reviewId, helpfulCount: found.helpfulCount, isDemoMode: true };
 }
 
 // Test / Diagnostic Helpers

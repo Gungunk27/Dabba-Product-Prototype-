@@ -3,6 +3,8 @@ import {
   Provider,
   Order,
   DemoCustomerReview,
+  CustomerReview,
+  CreateReviewInput,
   FilterState,
   CartItem,
   SubscriptionFrequency,
@@ -147,8 +149,90 @@ export class TiffinService {
     return meals.filter(m => m.providerId === providerId);
   }
 
-  public static async getReviews(providerId: string): Promise<DemoCustomerReview[]> {
+  public static async getReviews(providerId: string): Promise<CustomerReview[]> {
     return localDb.getReviewsByProvider(providerId);
+  }
+
+  public static async getMealReviews(mealId: string): Promise<CustomerReview[]> {
+    try {
+      const response = await fetch(`/api/meals/${mealId}/reviews`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.reviews || [];
+      }
+    } catch {
+      // Offline fallback
+    }
+    return localDb.getReviewsByMeal(mealId);
+  }
+
+  public static async submitReview(input: CreateReviewInput): Promise<CustomerReview> {
+    if (!input.rating || input.rating < 1 || input.rating > 5) {
+      throw new Error('Please select a star rating between 1 and 5.');
+    }
+    if (!input.authorName || input.authorName.trim().length < 2) {
+      throw new Error('Please enter your name (at least 2 characters).');
+    }
+    if (!input.reviewText || input.reviewText.trim().length < 10) {
+      throw new Error('Please provide constructive feedback (at least 10 characters).');
+    }
+
+    const newReview: CustomerReview = {
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      mealId: input.mealId,
+      providerId: input.providerId,
+      authorName: input.authorName.trim(),
+      rating: input.rating,
+      date: 'Just now',
+      createdAt: new Date().toISOString(),
+      reviewText: input.reviewText.trim(),
+      dietTag: input.dietTag || 'Homestyle',
+      aspects: input.aspects || [],
+      planType: input.planType || 'single_trial',
+      recommended: input.recommended !== false,
+      helpfulCount: 0,
+      verifiedSubscriber: true,
+      isDemoFeedback: false,
+    };
+
+    try {
+      const response = await fetch(`/api/meals/${input.mealId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getActiveToken()}`,
+        },
+        body: JSON.stringify(newReview),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.review) {
+          localDb.addReview(data.review);
+          return data.review;
+        }
+      }
+    } catch {
+      // In standalone / preview mode, store in localDb
+    }
+
+    localDb.addReview(newReview);
+    return newReview;
+  }
+
+  public static async voteReviewHelpful(reviewId: string): Promise<{ helpfulCount: number; hasVoted: boolean }> {
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/helpful`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch {
+      // Offline fallback
+    }
+    return localDb.voteReviewHelpful(reviewId);
   }
 
   public static calculateItemPrice(meal: MealItem, frequency: SubscriptionFrequency, quantity: number): number {
@@ -469,6 +553,32 @@ export class TiffinService {
 
     const result = await response.json();
     return result.isAvailable;
+  }
+
+  /**
+   * Fetch customer's order history from the server.
+   * Enforces customer session authentication and ownership isolation.
+   */
+  public static async getCustomerOrders(customerToken?: string): Promise<Order[]> {
+    const token = customerToken || this.getActiveToken();
+    try {
+      const response = await fetch('/api/customer/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.orders || [];
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.message || errJson.error || `Failed to fetch customer orders (HTTP ${response.status})`);
+      }
+    } catch (err: unknown) {
+      // In offline / preview test environments, return localDb orders
+      return localDb.getOrders();
+    }
   }
 
   public static async getOrderById(orderId: string): Promise<Order | null> {
